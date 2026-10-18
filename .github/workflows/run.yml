@@ -149,6 +149,10 @@ jobs:
           go run ./ --datapath=../community/data
       - name: Move and zip files and generate sha256 hash
         run: |
+          # 给空的 tld 列表写占位注释行，避免上传 action 跳过空文件（域名解析器会忽略 # 行）
+          for f in {proxy,direct,reject}-tld-list.txt; do
+            [ -s "$f" ] || echo "#" > "$f"
+          done
           install -Dp ./geoip.dat ./publish/geoip.dat
           install -Dp ./geoip.dat.sha256sum ./publish/geoip.dat.sha256sum
           install -Dp ./custom/publish/geosite.dat ./publish/geosite.dat
@@ -161,10 +165,13 @@ jobs:
           sha256sum rules.zip > rules.zip.sha256sum
       - name: Release and upload assets
         if: github.event_name != 'pull_request'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release create "$TAG_NAME" ./publish/* --title "$RELEASE_NAME" --notes "$RELEASE_NAME"
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          release_name: ${{ env.RELEASE_NAME }}
+          tag: ${{ env.TAG_NAME }}
+          file_glob: true
+          file: ./publish/*
       - name: Git push assets to "release" branch
         if: github.event_name != 'pull_request'
         run: |
